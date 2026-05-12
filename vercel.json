@@ -1,13 +1,8 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "api/*.py", "use": "@vercel/python" },
-    { "src": "index.html", "use": "@vercel/static" }
-  ],
-  "routes": [
-    { "src": "/api/generate", "dest": "/api/generate.py" },
-    { "src": "/api/stream",   "dest": "/api/stream.py"   },
-    { "src": "/api/key",      "dest": "/api/key.py"      },
-    { "src": "/(.*)",         "dest": "/index.html"      }
+  "rewrites": [
+    { "source": "/api/generate", "destination": "/api/generate" },
+    { "source": "/api/stream",   "destination": "/api/stream"   },
+    { "source": "/api/key",      "destination": "/api/key"      },
+    { "source": "/(.*)",         "destination": "/index.html"   }
   ]
 }

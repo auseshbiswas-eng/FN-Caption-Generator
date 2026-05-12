@@ -1,0 +1,1928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FundedNext AI Caption Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet">
+<style>
+/* ================================================================
+   DESIGN TOKENS
+   ================================================================ */
+:root {
+  --bg-primary:   #08080f;
+  --bg-secondary: #0d0d1a;
+  --bg-card:      #0e0e1c;
+  --bg-card-h:    #131328;
+  --bg-input:     #0b0b18;
+  --border:       #1e1e3a;
+  --border-h:     #2a2a50;
+  --cyan:         #00C6FF;
+  --cyan-dim:     rgba(0,198,255,.12);
+  --cyan-glow:    rgba(0,198,255,.25);
+  --gold:         #FFD700;
+  --gold-dim:     rgba(255,215,0,.12);
+  --green:        #00FF88;
+  --green-dim:    rgba(0,255,136,.12);
+  --purple:       #9B59FF;
+  --purple-dim:   rgba(155,89,255,.12);
+  --red:          #FF4466;
+  --red-dim:      rgba(255,68,102,.12);
+  --t1:           #F0F0FF;
+  --t2:           #8888aa;
+  --t3:           #555577;
+  --sidebar-w:    274px;
+  --header-h:     56px;
+  --r:            12px;
+  --r-sm:         7px;
+  --trans:        .18s ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--t1);
+  display: flex;
+  flex-direction: column;
+}
+
+/* scrollbar */
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--t3); }
+
+/* ================================================================
+   HEADER
+   ================================================================ */
+header {
+  height: var(--header-h);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 14px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.logo { display:flex; align-items:center; gap:9px; text-decoration:none; }
+.fn-wordmark {
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 2.5px;
+  color: #fff;
+  background: #06061a;
+  border: 1px solid rgba(255,255,255,.08);
+  padding: 7px 16px;
+  border-radius: 6px;
+  white-space: nowrap;
+  user-select: none;
+}
+.logo-sub  {
+  font-size:11px; font-weight:600; letter-spacing:.5px;
+  background:linear-gradient(90deg,var(--cyan),var(--purple));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.hspacer { flex:1; }
+
+.hpill {
+  display:flex; align-items:center; gap:5px;
+  padding:4px 11px; border-radius:20px;
+  font-size:11px; font-weight:600;
+  cursor:pointer; transition:var(--trans);
+  border:1px solid transparent;
+}
+.hpill-bv {
+  background:var(--gold-dim); border-color:rgba(255,215,0,.2);
+  color:var(--gold);
+}
+.hpill-bv:hover { background:rgba(255,215,0,.2); }
+
+.api-status {
+  display:flex; align-items:center; gap:5px;
+  font-size:11px; color:var(--t2);
+}
+.sdot {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--red); transition:background .3s;
+}
+.sdot.on { background:var(--green); box-shadow:0 0 6px var(--green); }
+
+.btn-key {
+  display:flex; align-items:center; gap:5px;
+  padding:6px 13px; border-radius:var(--r-sm);
+  background:var(--bg-card); border:1px solid var(--border);
+  color:var(--t2); cursor:pointer; font-size:12px; font-weight:500;
+  transition:var(--trans);
+}
+.btn-key:hover { border-color:var(--cyan); color:var(--cyan); }
+
+/* ================================================================
+   LAYOUT
+   ================================================================ */
+.app { display:flex; flex:1; overflow:hidden; }
+
+/* ================================================================
+   SIDEBAR
+   ================================================================ */
+.sidebar {
+  width:var(--sidebar-w); flex-shrink:0;
+  background:var(--bg-secondary);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column;
+  overflow-y:auto; overflow-x:hidden;
+}
+
+.sb-section { padding:18px 12px 6px; }
+.sb-label {
+  font-size:9.5px; font-weight:700; letter-spacing:1.2px;
+  color:var(--t3); text-transform:uppercase;
+  padding:0 8px 8px;
+}
+
+.nav-item {
+  display:flex; align-items:center; gap:9px;
+  padding:9px 12px; border-radius:var(--r-sm);
+  cursor:pointer; transition:var(--trans);
+  color:var(--t2); font-size:13px; font-weight:500;
+  margin-bottom:2px; user-select:none;
+  border:1px solid transparent;
+}
+.nav-item:hover           { background:var(--bg-card); color:var(--t1); }
+.nav-item.active          { background:var(--cyan-dim); color:var(--cyan); border-color:rgba(0,198,255,.15); }
+.nav-item.active .nav-ico { background:var(--cyan-dim); }
+
+.nav-ico {
+  width:28px; height:28px; border-radius:7px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; background:rgba(255,255,255,.04);
+  transition:var(--trans);
+}
+.nav-lbl { flex:1; }
+.nav-badge {
+  font-size:9px; padding:2px 6px; border-radius:10px;
+  background:var(--green-dim); color:var(--green); font-weight:700;
+  letter-spacing:.3px;
+}
+
+.sb-footer {
+  margin-top:auto; padding:14px 12px;
+  border-top:1px solid var(--border);
+}
+.bv-card {
+  padding:10px 12px; border-radius:var(--r-sm);
+  background:var(--bg-card); border:1px solid var(--border);
+}
+.bv-card-ttl {
+  font-size:9.5px; color:var(--t3); text-transform:uppercase;
+  letter-spacing:.8px; font-weight:600; margin-bottom:4px;
+}
+.bv-card-val {
+  font-size:11.5px; color:var(--gold); font-weight:600;
+  display:flex; align-items:center; gap:5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* ================================================================
+   CONTENT + PANELS
+   ================================================================ */
+.content { flex:1; overflow:hidden; position:relative; }
+
+.panel {
+  position:absolute; inset:0;
+  overflow-y:auto; padding:26px 30px;
+  display:none; opacity:0; transform:translateY(5px);
+  transition:opacity .2s,transform .2s;
+}
+.panel.active { display:block; opacity:1; transform:none; }
+
+.panel-hd { margin-bottom:22px; }
+.panel-ttl {
+  font-size:21px; font-weight:700; letter-spacing:-.4px; margin-bottom:3px;
+}
+.panel-sub { font-size:13px; color:var(--t2); }
+
+/* ================================================================
+   CARDS
+   ================================================================ */
+.card {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--r); padding:18px; margin-bottom:14px;
+  transition:border-color var(--trans);
+}
+.card:hover { border-color:var(--border-h); }
+.card-ttl {
+  font-size:11px; font-weight:700; letter-spacing:.8px;
+  text-transform:uppercase; color:var(--t3);
+  margin-bottom:13px; display:flex; align-items:center; gap:6px;
+}
+
+/* ================================================================
+   FORM ELEMENTS
+   ================================================================ */
+.fg { margin-bottom:14px; }
+.flabel {
+  display:block; font-size:11.5px; font-weight:600;
+  color:var(--t2); margin-bottom:6px; letter-spacing:.2px;
+}
+
+.finput, .fselect, .ftarea {
+  width:100%; background:var(--bg-input); border:1px solid var(--border);
+  border-radius:var(--r-sm); color:var(--t1); font-family:inherit;
+  font-size:13px; padding:9px 12px; transition:border-color var(--trans),box-shadow var(--trans);
+  outline:none;
+}
+.finput:focus, .fselect:focus, .ftarea:focus {
+  border-color:var(--cyan); box-shadow:0 0 0 3px var(--cyan-dim);
+}
+.ftarea { resize:vertical; min-height:90px; line-height:1.65; }
+.ftarea.tall { min-height:120px; }
+.fselect {
+  cursor:pointer; appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238888aa' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 11px center; padding-right:30px;
+}
+
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px; }
+
+/* ================================================================
+   PILL SELECTORS
+   ================================================================ */
+.pills { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+.pill {
+  padding:5px 13px; border-radius:20px; border:1px solid var(--border);
+  background:var(--bg-secondary); font-size:12px; cursor:pointer;
+  transition:all var(--trans); color:var(--t2); user-select:none;
+  white-space:nowrap;
+}
+.pill:hover { border-color:var(--border-h); color:var(--t1); }
+.pill.active-cyan   { border-color:var(--cyan); color:var(--cyan); background:var(--cyan-dim); }
+.pill.active-purple { border-color:var(--purple); color:var(--purple); background:var(--purple-dim); }
+.pill.active-gold   { border-color:var(--gold); color:var(--gold); background:var(--gold-dim); }
+.pill.active-green  { border-color:var(--green); color:var(--green); background:var(--green-dim); }
+
+/* voice selector special pills */
+.voice-pills { display:flex; gap:8px; margin-bottom:16px; }
+.vpill {
+  flex:1; padding:10px 14px; border-radius:var(--r-sm);
+  border:1px solid var(--border); background:var(--bg-secondary);
+  cursor:pointer; transition:all var(--trans); text-align:left;
+}
+.vpill:hover { border-color:var(--border-h); background:var(--bg-card); }
+.vpill.active-coach {
+  border-color:rgba(0,255,136,.35); background:var(--green-dim);
+}
+.vpill.active-peer {
+  border-color:rgba(0,198,255,.35); background:var(--cyan-dim);
+}
+.vpill-name { font-size:13px; font-weight:700; margin-bottom:2px; }
+.vpill.active-coach .vpill-name { color:var(--green); }
+.vpill.active-peer  .vpill-name { color:var(--cyan); }
+.vpill-desc { font-size:11px; color:var(--t2); line-height:1.4; }
+
+/* ================================================================
+   CHECKBOXES
+   ================================================================ */
+.opts-row { display:flex; gap:18px; flex-wrap:wrap; margin-bottom:14px; }
+.chk {
+  display:flex; align-items:center; gap:7px;
+  cursor:pointer; font-size:12.5px; color:var(--t2);
+  user-select:none;
+}
+.chk input[type="checkbox"] { width:14px; height:14px; accent-color:var(--cyan); cursor:pointer; }
+.chk:hover { color:var(--t1); }
+
+/* ================================================================
+   BUTTONS
+   ================================================================ */
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  padding:9px 18px; border-radius:var(--r-sm); border:none;
+  cursor:pointer; font-family:inherit; font-size:13px; font-weight:600;
+  transition:all var(--trans); outline:none; user-select:none;
+}
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+.btn svg { flex-shrink:0; }
+
+.btn-primary {
+  background:linear-gradient(135deg,var(--cyan),#0099cc); color:#000;
+}
+.btn-primary:hover:not(:disabled) {
+  background:linear-gradient(135deg,#33d4ff,var(--cyan));
+  box-shadow:0 4px 20px var(--cyan-glow); transform:translateY(-1px);
+}
+
+.btn-gold {
+  background:linear-gradient(135deg,var(--gold),#cc9900); color:#000;
+}
+.btn-gold:hover:not(:disabled) {
+  background:linear-gradient(135deg,#ffe033,var(--gold));
+  box-shadow:0 4px 20px rgba(255,215,0,.3); transform:translateY(-1px);
+}
+
+.btn-purple {
+  background:linear-gradient(135deg,var(--purple),#6633cc); color:#fff;
+}
+.btn-purple:hover:not(:disabled) {
+  box-shadow:0 4px 20px rgba(155,89,255,.35); transform:translateY(-1px);
+}
+
+.btn-ghost {
+  background:transparent; border:1px solid var(--border); color:var(--t2);
+}
+.btn-ghost:hover:not(:disabled) { border-color:var(--cyan); color:var(--cyan); }
+
+.btn-ghost-g {
+  background:transparent; border:1px solid rgba(0,255,136,.2); color:var(--green);
+}
+.btn-ghost-g:hover:not(:disabled) { background:var(--green-dim); border-color:var(--green); }
+
+.btn-full { width:100%; }
+.btn-sm   { padding:5px 11px; font-size:11.5px; }
+.btn-lg   { padding:11px 24px; font-size:14px; }
+
+.action-bar { display:flex; gap:7px; margin-top:10px; flex-wrap:wrap; align-items:center; }
+
+/* ================================================================
+   OUTPUT AREA
+   ================================================================ */
+.output-wrap {
+  background:var(--bg-secondary); border:1px solid var(--border);
+  border-radius:var(--r-sm); padding:14px 16px; min-height:130px;
+  font-size:13.5px; line-height:1.75; color:var(--t1);
+  white-space:pre-wrap; position:relative; transition:border-color var(--trans);
+  word-break:break-word;
+}
+.output-wrap.streaming { border-color:rgba(0,198,255,.3); }
+.output-wrap.done      { border-color:rgba(0,198,255,.2); }
+.output-placeholder    { color:var(--t3); font-style:italic; font-size:12.5px; }
+
+/* blinking cursor */
+.cursor {
+  display:inline-block; width:2px; height:1em;
+  background:var(--cyan); margin-left:2px;
+  vertical-align:text-bottom;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* char counter */
+.char-count { text-align:right; font-size:11px; color:var(--t3); margin-top:4px; }
+.char-count.warn { color:var(--gold); }
+.char-count.over { color:var(--red); }
+
+/* ================================================================
+   TRANSLATION GRID
+   ================================================================ */
+.tr-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  gap:12px; margin-top:14px;
+}
+.tr-card {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--r); padding:14px; transition:border-color var(--trans);
+}
+.tr-card.loading { border-color:rgba(155,89,255,.25); }
+.tr-card.done    { border-color:rgba(0,255,136,.2); }
+.tr-header { display:flex; align-items:center; gap:7px; margin-bottom:9px; }
+.tr-flag { font-size:20px; line-height:1; }
+.tr-lang { font-size:12.5px; font-weight:700; color:var(--t1); }
+.tr-code {
+  font-size:9.5px; color:var(--t3); margin-left:auto;
+  background:var(--bg-secondary); padding:2px 7px; border-radius:10px;
+  letter-spacing:.5px;
+}
+.tr-text {
+  font-size:12.5px; line-height:1.7; color:var(--t2);
+  min-height:70px; margin-bottom:9px; white-space:pre-wrap;
+}
+.tr-text.has-content { color:var(--t1); }
+.tr-text.rtl { direction:rtl; text-align:right; }
+
+/* progress bar */
+.prog-wrap { height:2px; background:var(--border); border-radius:1px; overflow:hidden; margin:10px 0; }
+.prog-bar  {
+  height:100%; background:linear-gradient(90deg,var(--cyan),var(--purple));
+  border-radius:1px; transition:width .4s ease; width:0%;
+}
+
+/* ================================================================
+   IMAGE UPLOAD ZONE
+   ================================================================ */
+.drop-zone {
+  border:2px dashed var(--border); border-radius:var(--r);
+  padding:34px 20px; text-align:center;
+  cursor:pointer; transition:all var(--trans); background:var(--bg-secondary);
+  position:relative;
+}
+.drop-zone:hover, .drop-zone.drag { border-color:var(--cyan); background:var(--cyan-dim); }
+.drop-zone input { display:none; }
+.dz-icon  { font-size:30px; margin-bottom:9px; }
+.dz-ttl   { font-size:14px; font-weight:600; color:var(--t1); margin-bottom:3px; }
+.dz-sub   { font-size:11.5px; color:var(--t3); }
+.dz-sub span { color:var(--cyan); }
+
+.img-preview-wrap { display:none; margin-top:12px; position:relative; }
+.img-preview {
+  width:100%; max-height:260px; object-fit:contain;
+  border-radius:var(--r-sm); border:1px solid var(--border); display:block;
+}
+.img-remove {
+  position:absolute; top:8px; right:8px;
+  background:rgba(0,0,0,.75); border:none; border-radius:50%;
+  width:26px; height:26px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; color:#fff; font-size:14px; transition:background var(--trans);
+}
+.img-remove:hover { background:rgba(255,68,102,.8); }
+.img-meta { font-size:11px; color:var(--t3); margin-top:6px; text-align:center; }
+
+/* ================================================================
+   FILE UPLOAD TRIGGER (brand voice)
+   ================================================================ */
+.file-trigger {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 14px; border:1px dashed var(--border);
+  border-radius:var(--r-sm); cursor:pointer;
+  transition:all var(--trans); background:var(--bg-input);
+}
+.file-trigger:hover { border-color:var(--gold); background:var(--gold-dim); }
+.file-trigger input { display:none; }
+.file-ico  { font-size:18px; flex-shrink:0; }
+.file-info { flex:1; min-width:0; }
+.file-name { font-size:12.5px; font-weight:500; color:var(--t1); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.file-size { font-size:10.5px; color:var(--t3); }
+
+/* ================================================================
+   SPINNER
+   ================================================================ */
+.spinner {
+  width:14px; height:14px; border:2px solid rgba(0,0,0,.25);
+  border-top-color:currentColor; border-radius:50%;
+  animation:spin .65s linear infinite; flex-shrink:0;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ================================================================
+   TOAST
+   ================================================================ */
+#toasts {
+  position:fixed; bottom:20px; right:20px; z-index:9999;
+  display:flex; flex-direction:column; gap:7px; pointer-events:none;
+}
+.toast {
+  padding:9px 16px; border-radius:var(--r-sm);
+  background:var(--bg-card); border:1px solid var(--border);
+  font-size:12.5px; font-weight:500; color:var(--t1);
+  box-shadow:0 6px 28px rgba(0,0,0,.5);
+  animation:tin .25s ease, tout .25s ease 1.75s forwards;
+  display:flex; align-items:center; gap:7px; white-space:nowrap;
+}
+.toast.ok  { border-color:rgba(0,255,136,.3); }
+.toast.err { border-color:rgba(255,68,102,.3); }
+@keyframes tin  { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:none} }
+@keyframes tout { from{opacity:1} to{opacity:0;transform:translateX(16px)} }
+
+/* ================================================================
+   MODAL (API KEY)
+   ================================================================ */
+.modal-bg {
+  position:fixed; inset:0; background:rgba(0,0,0,.7);
+  backdrop-filter:blur(4px); z-index:1000;
+  display:none; align-items:center; justify-content:center;
+}
+.modal-bg.open { display:flex; }
+.modal {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--r); padding:26px; width:min(420px,94vw);
+  box-shadow:0 20px 70px rgba(0,0,0,.6);
+}
+.modal-ttl  { font-size:16px; font-weight:700; margin-bottom:5px; }
+.modal-sub  { font-size:12.5px; color:var(--t2); margin-bottom:18px; line-height:1.5; }
+.modal-acts { display:flex; gap:9px; margin-top:14px; justify-content:flex-end; }
+
+/* ================================================================
+   SETTINGS DIVIDER
+   ================================================================ */
+.sdivider { height:1px; background:var(--border); margin:22px 0; }
+.s-ttl { font-size:14px; font-weight:700; color:var(--t1); margin-bottom:3px; display:flex; align-items:center; gap:8px; }
+.s-desc { font-size:12px; color:var(--t2); margin-bottom:14px; line-height:1.5; }
+
+/* ================================================================
+   CHIPS / BADGES
+   ================================================================ */
+.chip {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 9px; border-radius:20px;
+  font-size:10.5px; font-weight:600;
+}
+.chip-g  { background:var(--green-dim);  color:var(--green);  border:1px solid rgba(0,255,136,.2); }
+.chip-c  { background:var(--cyan-dim);   color:var(--cyan);   border:1px solid rgba(0,198,255,.2); }
+.chip-p  { background:var(--purple-dim); color:var(--purple); border:1px solid rgba(155,89,255,.2); }
+.chip-gd { background:var(--gold-dim);   color:var(--gold);   border:1px solid rgba(255,215,0,.2); }
+
+/* ================================================================
+   MISC UTILITIES
+   ================================================================ */
+.divider { height:1px; background:var(--border); margin:16px 0; }
+.flex-row { display:flex; align-items:center; gap:8px; }
+.mt-sm { margin-top:8px; }
+.mt-md { margin-top:14px; }
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media (max-width:720px) {
+  :root { --sidebar-w:58px; }
+  .nav-lbl,.nav-badge,.sb-label,.bv-card { display:none; }
+  .nav-item { justify-content:center; padding:11px; }
+  .panel { padding:18px 14px; }
+  .tr-grid { grid-template-columns:1fr; }
+  .grid-2,.grid-3 { grid-template-columns:1fr; }
+  .voice-pills { flex-direction:column; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header>
+  <div class="logo">
+    <div class="fn-wordmark">FUNDEDNEXT</div>
+  </div>
+
+  <div class="hspacer"></div>
+
+  <div class="hpill hpill-bv" id="bv-pill" onclick="switchTab('settings')" title="Manage brand voice">
+    <span>📋</span>
+    <span id="bv-pill-txt">Brand Voice: Default</span>
+  </div>
+
+  <div class="api-status">
+    <div class="sdot" id="sdot"></div>
+    <span id="stext">No API key</span>
+  </div>
+
+  <button class="btn-key" onclick="openKeyModal()">🔑 API Key</button>
+</header>
+
+<!-- ============================================================
+     APP LAYOUT
+     ============================================================ -->
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sb-section">
+      <div class="sb-label">Tools</div>
+
+      <div class="nav-item active" data-tab="caption" onclick="switchTab('caption')">
+        <div class="nav-ico">✍</div>
+        <div class="nav-lbl">Caption Generator</div>
+        <div class="nav-badge">NEW</div>
+      </div>
+
+      <div class="nav-item" data-tab="translate" onclick="switchTab('translate')">
+        <div class="nav-ico">🌍</div>
+        <div class="nav-lbl">Translation Tool</div>
+      </div>
+
+      <div class="nav-item" data-tab="image" onclick="switchTab('image')">
+        <div class="nav-ico">🖼</div>
+        <div class="nav-lbl">Image Caption</div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-label">Config</div>
+      <div class="nav-item" data-tab="settings" onclick="switchTab('settings')">
+        <div class="nav-ico">⚙</div>
+        <div class="nav-lbl">Settings</div>
+      </div>
+    </div>
+
+    <div class="sb-footer">
+      <div class="bv-card">
+        <div class="bv-card-ttl">Brand Voice</div>
+        <div class="bv-card-val" id="bv-sidebar-val">✓ Default loaded</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CONTENT AREA -->
+  <main class="content">
+
+    <!-- ==========================================
+         PANEL 1: CAPTION GENERATOR
+         ========================================== -->
+    <div id="panel-caption" class="panel active">
+      <div class="panel-hd">
+        <div class="panel-ttl">Caption Generator</div>
+        <div class="panel-sub">Generate on-brand social media captions using the FundedNext brand voice.</div>
+      </div>
+
+      <!-- Voice Selector -->
+      <div class="card">
+        <div class="card-ttl">🎙 Editorial Voice</div>
+        <div class="voice-pills">
+          <div class="vpill active-coach" id="vpill-coach" onclick="selectVoice('coach')">
+            <div class="vpill-name">The Coach</div>
+            <div class="vpill-desc">CFD audience. Warm, specific, evidence-based. Explains the system to traders building their path.</div>
+          </div>
+          <div class="vpill" id="vpill-peer" onclick="selectVoice('peer')">
+            <div class="vpill-name">The Peer</div>
+            <div class="vpill-desc">Futures audience. Confident, technical, understated. Talks to experienced traders as an equal.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Platform + Pillar + Options -->
+      <div class="card">
+        <div class="card-ttl">⚙ Platform & Content</div>
+
+        <div class="flabel">Platform</div>
+        <div class="pills" id="platform-pills">
+          <div class="pill active-cyan" data-plat="instagram" onclick="selectPlatform(this)">📸 Instagram</div>
+          <div class="pill" data-plat="twitter"   onclick="selectPlatform(this)">𝕏 Twitter / X</div>
+          <div class="pill" data-plat="linkedin"  onclick="selectPlatform(this)">💼 LinkedIn</div>
+          <div class="pill" data-plat="facebook"  onclick="selectPlatform(this)">👥 Facebook</div>
+        </div>
+
+        <div class="flabel">Content Pillar</div>
+        <div class="pills" id="pillar-pills">
+          <div class="pill active-purple" data-pillar="system"  onclick="selectPillar(this)">🔧 System in Action</div>
+          <div class="pill" data-pillar="track"   onclick="selectPillar(this)">📊 Track Record</div>
+          <div class="pill" data-pillar="outcome" onclick="selectPillar(this)">🏆 Trader Outcome</div>
+          <div class="pill" data-pillar="context" onclick="selectPillar(this)">📚 Industry Context</div>
+          <div class="pill" data-pillar="product" onclick="selectPillar(this)">🚀 Product & Offers</div>
+          <div class="pill" data-pillar="meme"    onclick="selectPillar(this)">😂 Trading Memes</div>
+          <div class="pill" data-pillar="trendy"  onclick="selectPillar(this)">🔥 Trendy Content</div>
+        </div>
+
+        <div class="opts-row">
+          <label class="chk"><input type="checkbox" id="chk-hashtags"> Include hashtags</label>
+          <label class="chk"><input type="checkbox" id="chk-emoji"> Use selective emojis</label>
+          <label class="chk"><input type="checkbox" id="chk-cta" checked> Include CTA</label>
+        </div>
+      </div>
+
+      <!-- Prompt -->
+      <div class="card">
+        <div class="card-ttl">📝 Your Prompt</div>
+        <div class="fg">
+          <label class="flabel">Topic, idea, or specific message to communicate</label>
+          <textarea class="ftarea tall" id="cap-prompt" placeholder="e.g. 'We processed $8.4M in payouts this week. Show the mechanism — dashboard-tracked, verified, no manual steps.' or 'Rule: max daily loss is 5% of starting balance. Explain it clearly in Coach voice.'"></textarea>
+        </div>
+        <button class="btn btn-primary btn-full btn-lg" id="btn-gen-cap" onclick="generateCaption()">
+          <span id="btn-gen-cap-inner">⚡ Generate Caption</span>
+        </button>
+      </div>
+
+      <!-- Output -->
+      <div class="card" id="cap-output-card" style="display:none">
+        <div class="card-ttl">
+          ✨ Generated Caption
+          <span class="chip chip-c" id="cap-voice-chip" style="margin-left:auto"></span>
+          <span class="chip chip-p" id="cap-plat-chip"></span>
+        </div>
+        <div class="output-wrap" id="cap-output">
+          <span class="output-placeholder">Caption will appear here…</span>
+        </div>
+        <div class="char-count" id="cap-char-count"></div>
+        <div class="action-bar">
+          <button class="btn btn-ghost" onclick="copyOutput('cap-output','this-btn')">📋 Copy</button>
+          <button class="btn btn-ghost" onclick="generateCaption()">🔄 Regenerate</button>
+          <button class="btn btn-ghost-g" onclick="sendToTranslate()">➡ Send to Translation</button>
+        </div>
+      </div>
+    </div><!-- /panel-caption -->
+
+
+    <!-- ==========================================
+         PANEL 2: TRANSLATION TOOL
+         ========================================== -->
+    <div id="panel-translate" class="panel">
+      <div class="panel-hd">
+        <div class="panel-ttl">Translation Tool</div>
+        <div class="panel-sub">Translate your caption into 5 languages, preserving FundedNext tone and cultural nuance — not literal translation.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-ttl">✏ Original Caption</div>
+        <div class="fg">
+          <textarea class="ftarea tall" id="tr-source" placeholder="Paste your caption here, or use 'Send to Translation' from the Caption Generator…"></textarea>
+        </div>
+
+        <div class="flabel">Target Languages</div>
+        <div class="pills" id="lang-pills">
+          <div class="pill active-cyan" data-lang="it" onclick="toggleLang(this)">🇮🇹 Italian</div>
+          <div class="pill active-cyan" data-lang="fr" onclick="toggleLang(this)">🇫🇷 French</div>
+          <div class="pill active-cyan" data-lang="es" onclick="toggleLang(this)">🇪🇸 Spanish</div>
+          <div class="pill active-cyan" data-lang="ar" onclick="toggleLang(this)">🇸🇦 Arabic</div>
+          <div class="pill active-cyan" data-lang="pt" onclick="toggleLang(this)">🇵🇹 Portuguese</div>
+        </div>
+
+        <button class="btn btn-gold btn-full btn-lg" id="btn-translate" onclick="translateCaption()">
+          <span id="btn-translate-inner">🌍 Translate All</span>
+        </button>
+
+        <div class="prog-wrap" id="tr-prog-wrap" style="display:none">
+          <div class="prog-bar" id="tr-prog-bar"></div>
+        </div>
+      </div>
+
+      <!-- Translation cards -->
+      <div class="tr-grid" id="tr-grid"></div>
+    </div><!-- /panel-translate -->
+
+
+    <!-- ==========================================
+         PANEL 3: IMAGE CAPTION
+         ========================================== -->
+    <div id="panel-image" class="panel">
+      <div class="panel-hd">
+        <div class="panel-ttl">Image Caption Generator</div>
+        <div class="panel-sub">Upload an image and generate a brand-aligned caption based on visual content analysis.</div>
+      </div>
+
+      <!-- Upload -->
+      <div class="card">
+        <div class="card-ttl">🖼 Upload Image</div>
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('img-file-input').click()">
+          <input type="file" id="img-file-input" accept="image/*" onchange="handleImageSelect(event)">
+          <div class="dz-icon">📁</div>
+          <div class="dz-ttl">Drop image here or click to browse</div>
+          <div class="dz-sub">JPG, PNG, WebP, GIF · Max 5 MB · <span>Vision-powered analysis</span></div>
+        </div>
+        <div class="img-preview-wrap" id="img-preview-wrap">
+          <img class="img-preview" id="img-preview" src="" alt="Preview">
+          <button class="img-remove" onclick="clearImage()" title="Remove image">✕</button>
+          <div class="img-meta" id="img-meta"></div>
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div class="card">
+        <div class="card-ttl">⚙ Caption Options</div>
+
+        <div class="flabel">Platform</div>
+        <div class="pills" id="img-platform-pills">
+          <div class="pill active-cyan" data-plat="instagram" onclick="selectImgPlatform(this)">📸 Instagram</div>
+          <div class="pill" data-plat="twitter"   onclick="selectImgPlatform(this)">𝕏 Twitter / X</div>
+          <div class="pill" data-plat="linkedin"  onclick="selectImgPlatform(this)">💼 LinkedIn</div>
+          <div class="pill" data-plat="facebook"  onclick="selectImgPlatform(this)">👥 Facebook</div>
+        </div>
+
+        <div class="flabel">Editorial Voice</div>
+        <div class="pills" id="img-voice-pills">
+          <div class="pill active-green" data-voice="coach" onclick="selectImgVoice(this)">The Coach (CFD)</div>
+          <div class="pill" data-voice="peer" onclick="selectImgVoice(this)">The Peer (Futures)</div>
+        </div>
+
+        <div class="flabel">Content Pillar</div>
+        <div class="pills" id="img-pillar-pills">
+          <div class="pill active-purple" data-pillar="system"  onclick="selectImgPillar(this)">🔧 System in Action</div>
+          <div class="pill" data-pillar="track"   onclick="selectImgPillar(this)">📊 Track Record</div>
+          <div class="pill" data-pillar="outcome" onclick="selectImgPillar(this)">🏆 Trader Outcome</div>
+          <div class="pill" data-pillar="context" onclick="selectImgPillar(this)">📚 Industry Context</div>
+          <div class="pill" data-pillar="product" onclick="selectImgPillar(this)">🚀 Product & Offers</div>
+          <div class="pill" data-pillar="meme"    onclick="selectImgPillar(this)">😂 Trading Memes</div>
+          <div class="pill" data-pillar="trendy"  onclick="selectImgPillar(this)">🔥 Trendy Content</div>
+        </div>
+
+        <div class="opts-row">
+          <label class="chk"><input type="checkbox" id="img-chk-hashtags" checked> Include hashtags</label>
+          <label class="chk"><input type="checkbox" id="img-chk-emoji"> Use selective emojis</label>
+        </div>
+
+        <button class="btn btn-purple btn-full btn-lg" id="btn-gen-img" onclick="generateImageCaption()" disabled>
+          <span id="btn-gen-img-inner">🖼 Generate Caption from Image</span>
+        </button>
+      </div>
+
+      <!-- Output -->
+      <div class="card" id="img-output-card" style="display:none">
+        <div class="card-ttl">✨ Image Caption</div>
+        <div class="output-wrap" id="img-output">
+          <span class="output-placeholder">Caption will appear here…</span>
+        </div>
+        <div class="char-count" id="img-char-count"></div>
+        <div class="action-bar">
+          <button class="btn btn-ghost" onclick="copyOutput('img-output','this-btn')">📋 Copy</button>
+          <button class="btn btn-ghost-g" onclick="sendImgToTranslate()">➡ Send to Translation</button>
+        </div>
+      </div>
+    </div><!-- /panel-image -->
+
+
+    <!-- ==========================================
+         PANEL 4: SETTINGS
+         ========================================== -->
+    <div id="panel-settings" class="panel">
+      <div class="panel-hd">
+        <div class="panel-ttl">Settings</div>
+        <div class="panel-sub">Manage brand voice and API key configuration.</div>
+      </div>
+
+      <!-- Brand Voice -->
+      <div class="card">
+        <div class="card-ttl">📋 Brand Voice Configuration</div>
+
+        <div class="s-ttl">Upload Brand Voice File</div>
+        <div class="s-desc">Upload a TXT file containing your brand voice guidelines. This will override the built-in FundedNext guide.</div>
+
+        <label class="file-trigger" id="bv-file-trigger">
+          <input type="file" id="bv-file-input" accept=".txt,.md" onchange="handleBVUpload(event)">
+          <div class="file-ico">📄</div>
+          <div class="file-info">
+            <div class="file-name" id="bv-file-name">Choose a TXT or MD file…</div>
+            <div class="file-size" id="bv-file-size">No file selected</div>
+          </div>
+          <div class="btn btn-ghost btn-sm" style="pointer-events:none">Browse</div>
+        </label>
+
+        <div class="sdivider"></div>
+
+        <div class="s-ttl">Current Brand Voice</div>
+        <div class="s-desc">The active brand voice context sent with every generation. You can edit this directly.</div>
+
+        <textarea class="ftarea" id="bv-editor" style="min-height:260px;font-size:12px;line-height:1.6;font-family:monospace"></textarea>
+
+        <div class="action-bar mt-sm">
+          <button class="btn btn-primary" onclick="saveBrandVoice()">💾 Save Changes</button>
+          <button class="btn btn-ghost" onclick="resetBrandVoice()">↩ Reset to Default</button>
+          <span class="chip chip-g" id="bv-chars-chip"></span>
+        </div>
+      </div>
+
+      <!-- API Key -->
+      <div class="card">
+        <div class="card-ttl">🔑 API Key</div>
+        <div class="s-desc">Your Anthropic API key. Stored locally in your browser session only — never sent anywhere except OpenAI's API.</div>
+        <div class="fg">
+          <label class="flabel">OpenAI API Key</label>
+          <input type="password" class="finput" id="settings-apikey" placeholder="sk-proj-…">
+        </div>
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="saveApiKeyFromSettings()">✓ Save Key</button>
+          <button class="btn btn-ghost" onclick="clearApiKey()">✕ Clear</button>
+          <div class="api-status" style="margin-left:4px">
+            <div class="sdot" id="sdot2"></div>
+            <span id="stext2">Not connected</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- About -->
+      <div class="card">
+        <div class="card-ttl">ℹ About</div>
+        <p style="font-size:12.5px;color:var(--t2);line-height:1.7">
+          This tool uses the <strong style="color:var(--t1)">FundedNext Brand & Tone Position</strong> guide
+          (all 16 sections, 53 pages) as the AI system context for every generation.<br><br>
+          Two editorial voices are supported — <span style="color:var(--green)">The Coach</span> (CFD/social, warm + specific)
+          and <span style="color:var(--cyan)">The Peer</span> (Futures, technical + understated).<br><br>
+          All captions are checked against the brand's banned-word list and structural principles
+          before being returned.
+        </p>
+      </div>
+    </div><!-- /panel-settings -->
+
+  </main>
+</div><!-- /.app -->
+
+
+<!-- ============================================================
+     API KEY MODAL
+     ============================================================ -->
+<div class="modal-bg" id="key-modal">
+  <div class="modal">
+    <div class="modal-ttl">🔑 OpenAI API Key</div>
+    <div class="modal-sub">
+      Enter your API key to start generating captions.<br>
+      It is stored in your browser session only — not on any server.
+    </div>
+    <div class="fg">
+      <input type="password" class="finput" id="modal-apikey" placeholder="sk-proj-…" autocomplete="off">
+    </div>
+    <div class="modal-acts">
+      <button class="btn btn-ghost" onclick="closeKeyModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveApiKeyFromModal()">Save Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toasts"></div>
+
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* ================================================================
+   DEFAULT BRAND VOICE  (full FundedNext guide — section-by-section)
+   ================================================================ */
+const DEFAULT_BRAND_VOICE = `FUNDEDNEXT BRAND & TONE POSITION — FULL REFERENCE
+
+POSITIONING (Section 01):
+FundedNext is the first prop firm that makes the system fully legible to every trader at every stage.
+Core operating principle: "You always know where you stand."
+Every communication either earns or undermines this promise.
+Brand archetype: The Engineer — precise, systematic, transparent.
+The Engineer does not show enthusiasm. Builds something reliable and explains how it works.
+When something breaks: names the cause, the effect, and the fix. Not a corporate non-apology.
+
+TWO EDITORIAL VOICES (Section 03):
+One positioning territory, two voices. Positioning is constant. Tone shifts by audience.
+Speaking to "traders" as one group means speaking to no one. One voice for everyone is what every other prop firm does.
+
+THE COACH (CFD audience — Sections 03, 06):
+Audience: Traders who are building. 2-10 years trading experience. New to how prop trading works.
+They want clarity on process, confidence it is fair, evidence that traders like them succeed.
+They do NOT need hype, jargon, or pressure.
+What drives Coach tone:
+  - Energizing: Short sentences. Active verbs. Reader gets what they need, not asked to dig.
+  - Accessible: Technical where needed, never more. Terms explained once, clearly.
+  - Evidence-based: Shows proof, not claims. Social proof = verifiable information, not emotional inclusion.
+  - Specifics: Numbers over adjectives. "Funded in 4 days" over "fast." "93,000+ traders" over "thousands."
+Coach NEVER:
+  - Presents trading as easy (reduces credibility)
+  - Promises outcomes ("financial freedom," "passive income," "life-changing")
+  - Performs empathy ("We understand your frustration")
+  - Uses urgency tactics (no countdown timers, no "limited time," no "last chance")
+Coach curriculum scope: How prop trading works as a category. What challenges are. How payouts are processed. What rules exist and why. NOT: how to trade forex, chart patterns, technical analysis.
+Good Coach example: "303,000 traders said they would retry after failing a challenge. The most common reason for failing is hitting the daily loss limit in the first two weeks. Here is how to track your daily loss in real time on the FundedNext dashboard — and what to do when you are getting close."
+
+THE PEER (Futures audience — Sections 03, 07):
+Audience: Traders who already know the game. Understand market microstructure, exchange mechanics, execution quality. Evaluating whether this firm is serious enough to trade with.
+They need specs, execution details, and straightforward terms. NOT to be taught, marketed at, or made excited.
+What drives Peer tone:
+  - Technical: Correct terminology used without explanation. ES, NQ, CL, GC, trailing drawdown, EOD drawdown, CME Group, Tradovate.
+  - Understated: Personality is in restraint. Short sentences. No adjectives that don't add information. Dense with facts.
+  - Confident through accuracy: Confidence comes from precision. Every number correct. Every parameter specific.
+Peer NEVER:
+  - Explains the basics (signals FundedNext doesn't know its audience)
+  - Uses enthusiasm (exclamation marks, motivational language are all off-tone — red flags)
+  - Oversells: "Best execution" is meaningless. "Sub-second fills on ES via Tradovate" is a fact.
+Peer curriculum scope: FundedNext Futures infrastructure vs industry standards. Drawdown mechanics (trailing, EOD). Scaling plans and contract types. Contract specs for ES, NQ, CL, GC.
+Good Peer example: "FundedNext Futures uses end-of-day trailing drawdown on Legacy funded accounts — not real-time. The drawdown trails from your highest closing equity, not intraday peaks. This means intraday drawdown above your high does not reset your limit."
+
+SIX WRITING PRINCIPLES — ALL CHANNELS, BOTH VOICES (Section 08):
+1. FACT FIRST, CONTEXT SECOND: Most important info goes in sentence one. Never open with justification. Never start with "As part of our ongoing commitment..."
+2. SHOW THE MECHANISM: Do not state outcomes. Show how the system produces them. "Payouts processed within 24 hours. Current average: 14 hours. Track your status in the dashboard." NOT: "Fast payouts."
+3. THE PROOF SANDWICH: Specific data point → what it means → link to verify. "56,000+ reviews at 4.6 stars. Searchable. On a platform we do not control. Read them."
+4. NAME THE RULE: Never refer to rules generically. "Your account was flagged for one-sided betting. This rule requires..." NOT: "Your account was flagged for a rule violation."
+5. NO PASSIVE VOICE IN ACCOUNTABILITY: "We changed leverage because [reason]." NOT: "It was decided that leverage would be adjusted." Passive voice signals evasion.
+6. ANTI-HYPE CADENCE: Short declarative statement. Supporting fact. Proof point. Full stop. "93,000 traders paid. $257M total. Updated in real time." No exclamation marks in professional communications. Zero is the default.
+
+HARD COPY RULES (all channels):
+- American spelling throughout
+- No em dashes — use commas, periods, or colons instead
+- Maximum one exclamation mark per page; zero is fine
+- Risk language is visible, not buried
+- No filler intros
+- No empty superlatives without evidence
+- No sentence a competitor could use unchanged (if you can swap in FTMO's name, rewrite)
+
+BANNED WORDS — NO EXCEPTIONS, ANY CHANNEL (Section 09):
+journey, unlock, empower, seamless, revolutionary, game-changing, world-class, best-in-class, cutting-edge, industry-leading, financial freedom, passive income, life-changing profit, dreams come true, we promise, we're excited/thrilled/proud, we believe/we are passionate/our mission is, family/fam/community (as primary identity — false intimacy), we understand your frustration, any inconvenience, to serve you better, unlike other firms/we actually pay our traders, limited time/act now/don't miss out, become a successful/full-time trader, fire/rocket/money bag emoji in professional contexts, dominate/crush/smash as metaphors
+
+WORDS TO USE FREELY (Section 09):
+clear, visible, process, system, status, before, track record, every trader, same for everyone, "Here is.", "Before you buy.", specific rule names and numbers, specific dates and timeframes, challenge/evaluation/funded account, drawdown (with specific parameters)
+
+TRUSTED NUMBERS — ALWAYS USE CURRENT FIGURES (Section 15):
+$257M+ total payouts (updated in real time, never approximate — stale numbers are a liability)
+93,000+ funded traders
+56,000+ Trustpilot reviews at 4.6 stars
+14 hours average payout time (not "fast payouts")
+
+CONTENT PILLARS — SOCIAL MEDIA (Section 11):
+35-40%: System in Action — how FundedNext's systems work, rule explainers, process walkthroughs, dashboard guides
+20-25%: Track Record — data, milestones, proof points, monthly payout transparency reports
+20-25%: Trader Outcomes — real trader results with permission, payout receipts, progression case studies. NEVER fabricated.
+10-15%: Industry Context — how to evaluate a prop firm, category explainers. No competitor naming.
+5-10%: Product & Offers — new products, promotions. ALWAYS with full rule visibility before the CTA.
+
+CONTEXT-SPECIFIC TONE (Section 04):
+Celebration/milestone DO: "$300M paid to traders. The number speaks." NEVER: "We're SO excited to announce this AMAZING milestone!!!"
+Rule change DO: "Starting April 1, max position size on indices changes from 20 to 15 lots. Here is why, and here is the change log." NEVER: "We've updated our rules to serve you better!"
+Social/community post DO: "Most common question this week: 'How does consistency scoring work?' Here is the breakdown." NEVER: "Hey fam! Who's ready to get FUNDED today?!"
+
+GUARDRAILS (Section 10) — ABSOLUTE, NO EXCEPTIONS:
+Never defensive: Facts signal confidence; defensiveness signals insecurity.
+Never performative: Do not perform emotions. Do the thing. Let the action communicate.
+Never condescending: Both audiences are intelligent adults.
+Never hype: No superlatives without verifiable evidence. Hype signals the firm doesn't trust its product.
+Never name competitors: Not in marketing, not in social, not in response to criticism.
+Never promise outcomes: No copy implies FundedNext will make someone money.
+Never bury rules or risk: Risk disclosures visible, not buried in footers.
+Never generic: If a competitor could swap their name in unchanged, rewrite. This applies to every surface.
+
+QUALITY TEST — EVERY CAPTION MUST PASS (Section 16):
+1. Ban check: No banned words or phrases
+2. Fact-first check: Key fact in sentence one (not justification or warm-up)
+3. Mechanism check: Shows HOW something works, not just WHAT it claims
+4. Specificity check: Rules named, numbers given, dates stated, timeframes specific
+5. Hype check: Could FTMO, Topstep, or The5ers publish this with their logo? If yes, rewrite.
+6. Character check: Sounds like a person with genuine expertise, not a marketing department writing to targets
+7. Path check: Is this clearly Coach or clearly Peer? If ambiguous, assign and rewrite.
+8. Territory check: Does it help a trader know where they stand? Does it reinforce "you always know where you stand"?`;
+
+/* ================================================================
+   PLATFORM CONFIG
+   ================================================================ */
+const PLATFORM_CONFIG = {
+  instagram: { label:'Instagram', limit:2200, note:'First 125 chars visible before "more" fold.' },
+  twitter:   { label:'Twitter / X', limit:280, note:'280 character limit.' },
+  linkedin:  { label:'LinkedIn', limit:700, note:'~700 chars ideal for LinkedIn.' },
+  facebook:  { label:'Facebook', limit:500, note:'~500 chars for best engagement.' },
+};
+
+const LANGUAGE_CONFIG = {
+  it: { name:'Italian',    flag:'🇮🇹', rtl:false },
+  fr: { name:'French',     flag:'🇫🇷', rtl:false },
+  es: { name:'Spanish',    flag:'🇪🇸', rtl:false },
+  ar: { name:'Arabic',     flag:'🇸🇦', rtl:true  },
+  pt: { name:'Portuguese', flag:'🇵🇹', rtl:false },
+};
+
+const PILLAR_LABELS = {
+  system:  'System in Action',
+  track:   'Track Record',
+  outcome: 'Trader Outcome',
+  context: 'Industry Context',
+  product: 'Product & Offers',
+  meme:    'Trading Memes',
+  trendy:  'Trendy Social Content',
+};
+
+/* ================================================================
+   STATE
+   ================================================================ */
+const STATE = {
+  apiKey:    localStorage.getItem('fn_apikey')     || '',
+  brandVoice: localStorage.getItem('fn_brand_voice') || DEFAULT_BRAND_VOICE,
+  bvFileName: localStorage.getItem('fn_bv_fname')   || 'Default (Built-in)',
+  voice:     'coach',
+  platform:  'instagram',
+  pillar:    'system',
+  imgVoice:   'coach',
+  imgPlatform:'instagram',
+  imgPillar:  'system',
+  currentCaption: '',
+  currentImgCaption: '',
+  uploadedImage: null,  // { base64, mimeType, fileName, size }
+  selectedLangs: new Set(['it','fr','es','ar','pt']),
+};
+
+/* ================================================================
+   INIT
+   ================================================================ */
+window.addEventListener('DOMContentLoaded', () => {
+  updateApiStatus();
+  updateBVStatus();
+  document.getElementById('bv-editor').value = STATE.brandVoice;
+  updateBVChars();
+  initDragDrop();
+  pingKey();  // always ping — server may have key from env even if localStorage is empty
+  document.getElementById('settings-apikey').value = STATE.apiKey;
+  document.getElementById('modal-apikey').value = STATE.apiKey;
+});
+
+/* ================================================================
+   TAB SWITCHING
+   ================================================================ */
+function switchTab(tab) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+  document.querySelectorAll('.panel').forEach(el => {
+    const show = el.id === `panel-${tab}`;
+    if (show) {
+      el.style.display = 'block';
+      requestAnimationFrame(() => el.classList.add('active'));
+    } else {
+      el.classList.remove('active');
+      setTimeout(() => { if (!el.classList.contains('active')) el.style.display = 'none'; }, 220);
+    }
+  });
+  STATE.activeTab = tab;
+  if (tab === 'settings') document.getElementById('bv-editor').value = STATE.brandVoice;
+}
+
+/* ================================================================
+   VOICE / PLATFORM / PILLAR SELECTORS
+   ================================================================ */
+function selectVoice(v) {
+  STATE.voice = v;
+  document.getElementById('vpill-coach').className = 'vpill' + (v === 'coach' ? ' active-coach' : '');
+  document.getElementById('vpill-peer').className  = 'vpill' + (v === 'peer'  ? ' active-peer'  : '');
+}
+
+function selectPlatform(el) {
+  STATE.platform = el.dataset.plat;
+  document.querySelectorAll('#platform-pills .pill').forEach(p => p.className = 'pill');
+  el.classList.add('active-cyan');
+}
+
+function selectPillar(el) {
+  STATE.pillar = el.dataset.pillar;
+  document.querySelectorAll('#pillar-pills .pill').forEach(p => p.className = 'pill');
+  const isFun = el.dataset.pillar === 'meme' || el.dataset.pillar === 'trendy';
+  el.classList.add(isFun ? 'active-gold' : 'active-purple');
+}
+
+function selectImgPlatform(el) {
+  STATE.imgPlatform = el.dataset.plat;
+  document.querySelectorAll('#img-platform-pills .pill').forEach(p => p.className = 'pill');
+  el.classList.add('active-cyan');
+}
+
+function selectImgVoice(el) {
+  STATE.imgVoice = el.dataset.voice;
+  document.querySelectorAll('#img-voice-pills .pill').forEach(p => p.className = 'pill');
+  el.classList.add(el.dataset.voice === 'coach' ? 'active-green' : 'active-cyan');
+}
+
+function selectImgPillar(el) {
+  STATE.imgPillar = el.dataset.pillar;
+  document.querySelectorAll('#img-pillar-pills .pill').forEach(p => p.className = 'pill');
+  const colorMap = { meme:'active-gold', trendy:'active-gold', system:'active-purple', track:'active-purple', outcome:'active-purple', context:'active-purple', product:'active-purple' };
+  el.classList.add(colorMap[el.dataset.pillar] || 'active-purple');
+}
+
+function toggleLang(el) {
+  const lang = el.dataset.lang;
+  if (STATE.selectedLangs.has(lang)) {
+    if (STATE.selectedLangs.size <= 1) return;
+    STATE.selectedLangs.delete(lang);
+    el.className = 'pill';
+  } else {
+    STATE.selectedLangs.add(lang);
+    el.classList.add('active-cyan');
+  }
+}
+
+/* ================================================================
+   BUILD SYSTEM PROMPTS
+   ================================================================ */
+function buildCaptionPrompt(voice, platform, pillar, hashtags, emoji, cta) {
+  const plat = PLATFORM_CONFIG[platform];
+
+  // ── MEME PILLAR ──────────────────────────────────────────────────────────
+  if (pillar === 'meme') {
+    return `You are a social media meme creator for FundedNext, a prop trading firm with $257M+ paid out to 93,000+ funded traders.
+
+Generate a TRADING MEME caption. Style rules:
+- Relatable trader humor: pain, discipline, FOMO, green days, red days, the grind
+- Finance sarcasm and emotional market reactions — raw, funny, honest
+- "POV:" style openings work great: "POV: you passed the challenge on your 3rd attempt"
+- Internet meme formats: "Me watching my trade go red 30 seconds after entry", "nobody: / FundedNext trader:"
+- SHORT and punchy — under 100 characters is ideal, never over 150
+- TikTok/X/Instagram meme energy. Gen-Z internet culture tone.
+- Organic and human. NOT corporate. NOT polished brand speak.
+- No banned words: journey, unlock, empower, seamless, revolutionary, financial freedom
+- Numbers you can use: $257M+ paid, 93,000+ funded traders, 56,000+ Trustpilot reviews at 4.6★
+${hashtags ? '- Include 2–4 trending trading/finance hashtags (#PropTrading #TradingLife #FundedTrader etc.)' : '- No hashtags'}
+${emoji ? '- Use emojis freely — they work in memes' : '- No emojis'}
+${cta ? '- Add a casual, natural CTA if it fits — keep it light and human' : '- No CTA'}
+
+Platform: ${plat.label} — ${plat.note} Hard limit: ${plat.limit} chars.
+
+Output ONLY the caption text. Be genuinely funny, relatable, and shareable.`;
+  }
+
+  // ── TRENDY PILLAR ─────────────────────────────────────────────────────────
+  if (pillar === 'trendy') {
+    return `You are a viral content creator for FundedNext, a prop trading firm with $257M+ paid out to 93,000+ funded traders.
+
+Generate a TRENDY SOCIAL MEDIA caption. Style rules:
+- Open with a scroll-stopping hook — first line must grab immediately
+- Aesthetic, culturally relevant one-liners or short punchy structures
+- Fast-paced, social-first, organic — feels human, NOT corporate
+- Use trending caption patterns where appropriate: "the way...", "not me...", "it's giving...", "real ones know...", "we don't talk about...", "POV:", "that girl/guy who..."
+- Modern tone — Gen-Z and millennial crossover, trading world through a cultural lens
+- Every word must earn its place — no filler
+- Should feel like it belongs on a viral Instagram or TikTok page
+- Still rooted in FundedNext reality: funded traders, real payouts, the challenge grind
+- Avoid: journey, unlock, empower, seamless, revolutionary, financial freedom, passive income
+${hashtags ? '- Include 3–5 trending hashtags that match the vibe' : '- No hashtags'}
+${emoji ? '- Use emojis that fit the aesthetic/vibe' : '- No emojis'}
+${cta ? '- Add a trendy, casual CTA — no corporate language' : '- No CTA'}
+
+Platform: ${plat.label} — ${plat.note} Hard limit: ${plat.limit} chars.
+
+Output ONLY the caption text. Make it scroll-stopping, shareable, and culturally on-point.`;
+  }
+
+  // ── PROFESSIONAL PILLARS (existing brand voice) ───────────────────────────
+  const pillarLabel = PILLAR_LABELS[pillar] || pillar;
+  const voiceSection = voice === 'coach'
+    ? `EDITORIAL VOICE FOR THIS CAPTION: THE COACH
+Use the Coach voice as defined in the brand guide. Warm, specific, evidence-based.
+Explain the system to CFD traders who are building their path. No hype. No urgency. Fact first.
+The Coach earns trust through clarity, not enthusiasm.`
+    : `EDITORIAL VOICE FOR THIS CAPTION: THE PEER
+Use the Peer voice as defined in the brand guide. Technical, understated, confident through accuracy.
+Speak to professional Futures traders as an equal. No motivational language. No exclamation marks.
+Assume full competence. Specs and facts carry the post. Enthusiasm is a red flag.`;
+
+  return `${STATE.brandVoice}
+
+---
+GENERATION INSTRUCTIONS:
+
+${voiceSection}
+
+TARGET PLATFORM: ${plat.label}
+Platform note: ${plat.note} Character limit: ${plat.limit}.
+
+CONTENT PILLAR: ${pillarLabel}
+Generate content aligned with this pillar specifically.
+
+OPTIONS:
+${hashtags ? '- Include relevant hashtags (platform-appropriate quantity).' : '- Do NOT include hashtags.'}
+${emoji ? '- You MAY use one or two emojis if they add genuine information signal. No fire/rocket/money emoji.' : '- Do NOT use emojis.'}
+${cta ? '- Include a clear CTA that names what happens (e.g. "Start your challenge from $549." not "Click here"). No urgency tactics.' : '- Do NOT include a CTA.'}
+
+FORMAT: Output ONLY the caption text. No preamble, no explanation, no meta-commentary.
+Run the full 8-point quality test from Section 16 before outputting.`;
+}
+
+function buildImageCaptionPrompt(voice, platform, pillar, hashtags, emoji) {
+  const plat = PLATFORM_CONFIG[platform];
+
+  if (pillar === 'meme') {
+    return `You are a social media meme creator for FundedNext, a prop trading firm.
+
+Analyze the image and generate a TRADING MEME caption based on what you see.
+- Relatable trader humor — lean into the emotion, situation, or vibe of the image
+- "POV:", internet meme formats, finance sarcasm — all fair game
+- SHORT and punchy (under 100 chars ideal)
+- TikTok/X/Instagram meme energy. Gen-Z tone. Organic, NOT corporate.
+${hashtags ? '- Include 2–4 trending trading/finance hashtags' : '- No hashtags'}
+${emoji ? '- Use emojis freely' : '- No emojis'}
+
+Platform: ${plat.label} — limit: ${plat.limit} chars.
+Output ONLY the caption text.`;
+  }
+
+  if (pillar === 'trendy') {
+    return `You are a viral content creator for FundedNext, a prop trading firm.
+
+Analyze the image and generate a TRENDY SOCIAL MEDIA caption based on what you see.
+- Scroll-stopping hook in the first line
+- Trending caption structures, aesthetic one-liners, culturally relevant tone
+- Fast-paced, social-first, organic — NOT corporate
+- Rooted in what the image actually shows
+${hashtags ? '- Include 3–5 trending hashtags' : '- No hashtags'}
+${emoji ? '- Use emojis that fit the vibe' : '- No emojis'}
+
+Platform: ${plat.label} — limit: ${plat.limit} chars.
+Output ONLY the caption text.`;
+  }
+
+  const voiceNote = voice === 'coach'
+    ? 'Use The Coach voice: warm, specific, evidence-based. For the CFD/social audience.'
+    : 'Use The Peer voice: technical, understated, confident. For the Futures professional audience.';
+
+  const pillarLabel = PILLAR_LABELS[pillar] || 'System in Action';
+
+  return `${STATE.brandVoice}
+
+---
+GENERATION INSTRUCTIONS FOR IMAGE-BASED CAPTION:
+
+Analyze the image provided. Identify: context (trading, lifestyle, milestone, data, motivation, product), key visual elements, and the most compelling fact or insight it communicates.
+
+${voiceNote}
+
+CONTENT PILLAR: ${pillarLabel}
+
+TARGET PLATFORM: ${plat.label}
+Character limit: ${plat.limit}.
+
+${hashtags ? 'Include relevant hashtags.' : 'Do NOT include hashtags.'}
+${emoji ? 'You MAY use one or two emojis if they add signal. No fire/rocket/money emoji.' : 'Do NOT use emojis.'}
+
+Write a caption that:
+1. Leads with the key fact or insight the image communicates (fact first)
+2. Follows FundedNext brand voice rules strictly
+3. Passes all 8 quality checks from Section 16
+4. Is specific to what is actually shown — not generic
+
+Output ONLY the caption text.`;
+}
+
+function buildTranslatePrompt(original, langs) {
+  const langNames = langs.map(l => `${LANGUAGE_CONFIG[l].flag} ${LANGUAGE_CONFIG[l].name} (key: "${l}")`).join('\n');
+  return `You are a senior multilingual copywriter for FundedNext, a premier prop trading firm.
+
+Your task: translate the following social media caption into the specified languages.
+
+CRITICAL RULES:
+1. DO NOT translate literally — adapt culturally while preserving the marketing intent, tone, and FundedNext brand voice.
+2. Maintain the anti-hype, fact-first, evidence-based brand voice in every language.
+3. Keep specific numbers, product names, and trading terminology accurate.
+4. For Arabic: ensure right-to-left flow reads naturally.
+5. Avoid banned concepts: financial freedom, passive income, life-changing, etc.
+6. Each translation must pass the same quality tests as the original.
+
+ORIGINAL CAPTION:
+"""
+${original}
+"""
+
+LANGUAGES TO TRANSLATE INTO:
+${langNames}
+
+OUTPUT FORMAT: Return ONLY a valid JSON object with these exact keys: ${langs.map(l => `"${l}"`).join(', ')}.
+Each value is the adapted translation string.
+No other text before or after the JSON. No markdown code blocks.`;
+}
+
+/* ================================================================
+   STREAMING API CALL
+   ================================================================ */
+async function streamToElement(body, outputEl, onDone) {
+  outputEl.innerHTML = '';
+  outputEl.classList.remove('done');
+  outputEl.classList.add('streaming');
+
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+  outputEl.appendChild(cursor);
+
+  let text = '';
+  try {
+    let res;
+    try {
+      res = await fetch('/api/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (netErr) {
+      outputEl.textContent = `⚠ Cannot reach server — is app.py running? (${netErr.message})`;
+      outputEl.classList.remove('streaming');
+      return null;
+    }
+
+    if (!res.ok) {
+      let err = {};
+      const raw = await res.text().catch(() => '');
+      try { err = JSON.parse(raw); } catch (_) {
+        outputEl.textContent = `⚠ Server error (HTTP ${res.status}). Make sure app.py is running on port 8080.`;
+        outputEl.classList.remove('streaming');
+        return null;
+      }
+      const e = err?.error;
+      const msg = e?.error?.message || e?.message || (typeof e === 'string' ? e : JSON.stringify(e)) || `HTTP ${res.status}`;
+      outputEl.textContent = `⚠ Error: ${msg}`;
+      outputEl.classList.remove('streaming');
+      return null;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed?.delta?.text || '';
+          if (delta) {
+            text += delta;
+            outputEl.textContent = text;
+            outputEl.appendChild(cursor);
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (err) {
+    outputEl.textContent = `⚠ Network error: ${err.message}`;
+    outputEl.classList.remove('streaming');
+    return null;
+  }
+
+  cursor.remove();
+  outputEl.classList.remove('streaming');
+  outputEl.classList.add('done');
+  if (onDone) onDone(text);
+  return text;
+}
+
+/* ================================================================
+   NON-STREAMING API CALL
+   ================================================================ */
+async function callGenerate(body) {
+  let res;
+  try {
+    res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (netErr) {
+    throw new Error('Cannot reach server — is app.py running? (' + netErr.message + ')');
+  }
+  let data;
+  try {
+    data = await res.json();
+  } catch (_) {
+    throw new Error(`Server returned non-JSON (HTTP ${res.status}). Make sure app.py is running on port 8080.`);
+  }
+  if (!res.ok) {
+    const e = data?.error;
+    const msg = e?.error?.message || e?.message || (typeof e === 'string' ? e : JSON.stringify(e)) || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data?.content?.[0]?.text || '';
+}
+
+/* ================================================================
+   GENERATE CAPTION
+   ================================================================ */
+async function generateCaption() {
+  const prompt = document.getElementById('cap-prompt').value.trim();
+  if (!prompt) { toast('Enter a topic or idea first.', 'err'); return; }
+  if (!STATE.apiKey) { toast('Set your API key first (🔑 button).', 'err'); return; }
+
+  const hashtags = document.getElementById('chk-hashtags').checked;
+  const emoji    = document.getElementById('chk-emoji').checked;
+  const cta      = document.getElementById('chk-cta').checked;
+
+  const sysPrompt = buildCaptionPrompt(STATE.voice, STATE.platform, STATE.pillar, hashtags, emoji, cta);
+
+  const btn = document.getElementById('btn-gen-cap');
+  btn.disabled = true;
+  document.getElementById('btn-gen-cap-inner').innerHTML = '<span class="spinner"></span> Generating…';
+
+  const card = document.getElementById('cap-output-card');
+  card.style.display = 'block';
+
+  const outputEl = document.getElementById('cap-output');
+  outputEl.innerHTML = '<span class="output-placeholder">Generating…</span>';
+
+  document.getElementById('cap-voice-chip').textContent = STATE.voice === 'coach' ? 'The Coach' : 'The Peer';
+  document.getElementById('cap-plat-chip').textContent  = PLATFORM_CONFIG[STATE.platform]?.label || STATE.platform;
+
+  const body = {
+    model: 'gpt-4o',
+    max_tokens: 1024,
+    system: sysPrompt,
+    messages: [{ role: 'user', content: prompt }],
+  };
+
+  const result = await streamToElement(body, outputEl, (text) => {
+    STATE.currentCaption = text;
+    updateCharCount('cap-char-count', text, PLATFORM_CONFIG[STATE.platform]?.limit);
+  });
+
+  btn.disabled = false;
+  document.getElementById('btn-gen-cap-inner').textContent = '⚡ Generate Caption';
+
+  if (result) updateCharCount('cap-char-count', result, PLATFORM_CONFIG[STATE.platform]?.limit);
+}
+
+/* ================================================================
+   TRANSLATE CAPTION
+   ================================================================ */
+async function translateCaption() {
+  const original = document.getElementById('tr-source').value.trim();
+  if (!original) { toast('Enter a caption to translate.', 'err'); return; }
+  if (!STATE.apiKey) { toast('Set your API key first (🔑 button).', 'err'); return; }
+  if (STATE.selectedLangs.size === 0) { toast('Select at least one language.', 'err'); return; }
+
+  const langs = [...STATE.selectedLangs];
+
+  const btn = document.getElementById('btn-translate');
+  btn.disabled = true;
+  document.getElementById('btn-translate-inner').innerHTML = '<span class="spinner"></span> Translating…';
+
+  // show progress bar
+  const progWrap = document.getElementById('tr-prog-wrap');
+  const progBar  = document.getElementById('tr-prog-bar');
+  progWrap.style.display = 'block';
+  progBar.style.width = '0%';
+
+  // render empty cards
+  const grid = document.getElementById('tr-grid');
+  grid.innerHTML = '';
+  langs.forEach(lang => {
+    const cfg = LANGUAGE_CONFIG[lang];
+    const card = document.createElement('div');
+    card.className = 'tr-card loading';
+    card.id = `tr-card-${lang}`;
+    card.innerHTML = `
+      <div class="tr-header">
+        <span class="tr-flag">${cfg.flag}</span>
+        <span class="tr-lang">${cfg.name}</span>
+        <span class="tr-code">${lang.toUpperCase()}</span>
+      </div>
+      <div class="tr-text" id="tr-text-${lang}"><span style="color:var(--t3);font-size:12px">Translating…</span></div>
+      <button class="btn btn-ghost btn-sm" onclick="copyText(document.getElementById('tr-text-${lang}').textContent,this)" disabled id="tr-copy-${lang}">📋 Copy</button>`;
+    grid.appendChild(card);
+  });
+
+  setTimeout(() => { progBar.style.width = '30%'; }, 100);
+
+  const sysPrompt = buildTranslatePrompt(original, langs);
+
+  const body = {
+    model: 'gpt-4o',
+    max_tokens: 2048,
+    system: 'You are a multilingual content adapter for FundedNext. Return only valid JSON as instructed.',
+    messages: [{ role: 'user', content: sysPrompt }],
+  };
+
+  try {
+    progBar.style.width = '60%';
+    const raw = await callGenerate(body);
+    progBar.style.width = '90%';
+
+    // parse JSON — strip possible markdown fences
+    let jsonStr = raw.trim();
+    if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.replace(/^```[a-z]*\n?/, '').replace(/\n?```$/, '');
+    }
+    const translations = JSON.parse(jsonStr);
+
+    langs.forEach(lang => {
+      const textEl = document.getElementById(`tr-text-${lang}`);
+      const copyBtn = document.getElementById(`tr-copy-${lang}`);
+      const card    = document.getElementById(`tr-card-${lang}`);
+      const cfg     = LANGUAGE_CONFIG[lang];
+
+      const text = translations[lang] || '⚠ No translation returned';
+      textEl.textContent = text;
+      textEl.className   = `tr-text has-content${cfg.rtl ? ' rtl' : ''}`;
+      card.className     = 'tr-card done';
+      copyBtn.disabled   = false;
+    });
+
+    progBar.style.width = '100%';
+    setTimeout(() => { progWrap.style.display = 'none'; progBar.style.width = '0%'; }, 800);
+    toast('All translations complete.', 'ok');
+  } catch (err) {
+    toast(`Translation error: ${err.message}`, 'err');
+    langs.forEach(lang => {
+      const textEl = document.getElementById(`tr-text-${lang}`);
+      if (textEl) textEl.textContent = `⚠ Error: ${err.message}`;
+    });
+    progWrap.style.display = 'none';
+  }
+
+  btn.disabled = false;
+  document.getElementById('btn-translate-inner').textContent = '🌍 Translate All';
+}
+
+/* ================================================================
+   IMAGE CAPTION
+   ================================================================ */
+function handleImageSelect(event) {
+  const file = event.target.files?.[0];
+  if (file) processImageFile(file);
+}
+
+function processImageFile(file) {
+  if (file.size > 5 * 1024 * 1024) { toast('Image must be under 5 MB.', 'err'); return; }
+  const mime = file.type;
+  if (!['image/jpeg','image/png','image/gif','image/webp'].includes(mime)) {
+    toast('Unsupported image type. Use JPG, PNG, WebP, or GIF.', 'err');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const full   = e.target.result; // data:image/...;base64,...
+    const base64 = full.split(',')[1];
+    STATE.uploadedImage = { base64, mimeType: mime, fileName: file.name, size: file.size };
+
+    document.getElementById('img-preview').src = full;
+    document.getElementById('img-preview-wrap').style.display = 'block';
+    document.getElementById('drop-zone').style.display = 'none';
+    document.getElementById('img-meta').textContent = `${file.name} · ${(file.size / 1024).toFixed(0)} KB`;
+    document.getElementById('btn-gen-img').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage() {
+  STATE.uploadedImage = null;
+  document.getElementById('img-preview-wrap').style.display = 'none';
+  document.getElementById('drop-zone').style.display = 'block';
+  document.getElementById('img-file-input').value = '';
+  document.getElementById('btn-gen-img').disabled = true;
+  document.getElementById('img-output-card').style.display = 'none';
+}
+
+async function generateImageCaption() {
+  if (!STATE.uploadedImage) { toast('Upload an image first.', 'err'); return; }
+  if (!STATE.apiKey) { toast('Set your API key first (🔑 button).', 'err'); return; }
+
+  const hashtags = document.getElementById('img-chk-hashtags').checked;
+  const emoji    = document.getElementById('img-chk-emoji').checked;
+  const sysPrompt = buildImageCaptionPrompt(STATE.imgVoice, STATE.imgPlatform, STATE.imgPillar, hashtags, emoji);
+
+  const btn = document.getElementById('btn-gen-img');
+  btn.disabled = true;
+  document.getElementById('btn-gen-img-inner').innerHTML = '<span class="spinner"></span> Analyzing image…';
+
+  const card = document.getElementById('img-output-card');
+  card.style.display = 'block';
+
+  const outputEl = document.getElementById('img-output');
+  outputEl.innerHTML = '<span class="output-placeholder">Analyzing image…</span>';
+
+  const body = {
+    model: 'gpt-4o',
+    max_tokens: 1024,
+    system: sysPrompt,
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: STATE.uploadedImage.mimeType,
+            data: STATE.uploadedImage.base64,
+          },
+        },
+        {
+          type: 'text',
+          text: 'Analyze this image and generate a social media caption following the brand voice instructions.',
+        },
+      ],
+    }],
+  };
+
+  const result = await streamToElement(body, outputEl, (text) => {
+    STATE.currentImgCaption = text;
+    updateCharCount('img-char-count', text, PLATFORM_CONFIG[STATE.imgPlatform]?.limit);
+  });
+
+  btn.disabled = false;
+  document.getElementById('btn-gen-img-inner').textContent = '🖼 Generate Caption from Image';
+
+  if (result) updateCharCount('img-char-count', result, PLATFORM_CONFIG[STATE.imgPlatform]?.limit);
+}
+
+function initDragDrop() {
+  const zone = document.getElementById('drop-zone');
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    zone.classList.remove('drag');
+    const file = e.dataTransfer.files?.[0];
+    if (file) processImageFile(file);
+  });
+}
+
+/* ================================================================
+   SEND TO TRANSLATION
+   ================================================================ */
+function sendToTranslate() {
+  const text = STATE.currentCaption || document.getElementById('cap-output').textContent;
+  if (!text || text.includes('Caption will appear')) { toast('Generate a caption first.', 'err'); return; }
+  document.getElementById('tr-source').value = text;
+  switchTab('translate');
+  toast('Caption sent to Translation Tool.', 'ok');
+}
+
+function sendImgToTranslate() {
+  const text = STATE.currentImgCaption || document.getElementById('img-output').textContent;
+  if (!text || text.includes('Caption will appear')) { toast('Generate a caption first.', 'err'); return; }
+  document.getElementById('tr-source').value = text;
+  switchTab('translate');
+  toast('Caption sent to Translation Tool.', 'ok');
+}
+
+/* ================================================================
+   COPY TO CLIPBOARD
+   ================================================================ */
+function copyOutput(elId) {
+  const el = document.getElementById(elId);
+  const text = el.textContent;
+  if (!text || el.querySelector('.output-placeholder')) { toast('Nothing to copy yet.', 'err'); return; }
+  copyText(text);
+}
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    toast('Copied to clipboard.', 'ok');
+    if (btn && btn !== 'this-btn') {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copied';
+      setTimeout(() => btn.textContent = orig, 1800);
+    }
+  }).catch(() => toast('Copy failed — please copy manually.', 'err'));
+}
+
+/* ================================================================
+   BRAND VOICE
+   ================================================================ */
+function handleBVUpload(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  document.getElementById('bv-file-name').textContent = file.name;
+  document.getElementById('bv-file-size').textContent  = `${(file.size / 1024).toFixed(1)} KB`;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    document.getElementById('bv-editor').value = text;
+    updateBVChars();
+    toast(`Loaded: ${file.name}`, 'ok');
+  };
+  reader.readAsText(file);
+}
+
+function saveBrandVoice() {
+  const text = document.getElementById('bv-editor').value.trim();
+  if (!text) { toast('Brand voice cannot be empty.', 'err'); return; }
+  STATE.brandVoice = text;
+  localStorage.setItem('fn_brand_voice', text);
+  updateBVStatus();
+  updateBVChars();
+  toast('Brand voice saved.', 'ok');
+}
+
+function resetBrandVoice() {
+  if (!confirm('Reset to default FundedNext brand voice? Custom changes will be lost.')) return;
+  STATE.brandVoice = DEFAULT_BRAND_VOICE;
+  localStorage.removeItem('fn_brand_voice');
+  STATE.bvFileName = 'Default (Built-in)';
+  localStorage.removeItem('fn_bv_fname');
+  document.getElementById('bv-editor').value = DEFAULT_BRAND_VOICE;
+  document.getElementById('bv-file-name').textContent = 'Choose a TXT or MD file…';
+  document.getElementById('bv-file-size').textContent  = 'No file selected';
+  updateBVStatus();
+  updateBVChars();
+  toast('Brand voice reset to default.', 'ok');
+}
+
+function updateBVChars() {
+  const len = document.getElementById('bv-editor').value.length;
+  const el = document.getElementById('bv-chars-chip');
+  if (el) el.textContent = `${len.toLocaleString()} chars`;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('bv-editor').addEventListener('input', updateBVChars);
+});
+
+function updateBVStatus() {
+  const isCustom = STATE.brandVoice !== DEFAULT_BRAND_VOICE;
+  const label = isCustom ? (STATE.bvFileName || 'Custom') : 'Default (Built-in)';
+  document.getElementById('bv-pill-txt').textContent = `Brand Voice: ${label}`;
+  const sbVal = document.getElementById('bv-sidebar-val');
+  if (sbVal) sbVal.textContent = isCustom ? `✓ ${label}` : '✓ Default loaded';
+}
+
+/* ================================================================
+   API KEY
+   ================================================================ */
+function openKeyModal()  { document.getElementById('key-modal').classList.add('open'); document.getElementById('modal-apikey').focus(); }
+function closeKeyModal() { document.getElementById('key-modal').classList.remove('open'); }
+
+function saveApiKeyFromModal() {
+  const key = document.getElementById('modal-apikey').value.trim();
+  applyApiKey(key);
+  closeKeyModal();
+}
+
+function saveApiKeyFromSettings() {
+  const key = document.getElementById('settings-apikey').value.trim();
+  applyApiKey(key);
+}
+
+function clearApiKey() {
+  applyApiKey('');
+  document.getElementById('settings-apikey').value = '';
+  document.getElementById('modal-apikey').value = '';
+}
+
+function applyApiKey(key) {
+  STATE.apiKey = key;
+  localStorage.setItem('fn_apikey', key);
+  document.getElementById('settings-apikey').value = key;
+  document.getElementById('modal-apikey').value = key;
+
+  fetch('/api/key', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key }),
+  }).then(() => {
+    updateApiStatus();
+    if (key) pingKey();
+  }).catch(() => updateApiStatus());
+}
+
+async function pingKey() {
+  try {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 5,
+        messages: [{ role: 'user', content: 'Hi' }],
+      }),
+    });
+    const data = await res.json();
+    const ok = res.ok && data?.content;
+    setApiConnected(ok);
+    // Server has key from env but localStorage is empty — mark so client guards pass
+    if (ok && !STATE.apiKey) {
+      STATE.apiKey = '__server_env__';
+    }
+  } catch (_) {
+    setApiConnected(false);
+  }
+}
+
+function setApiConnected(ok) {
+  ['sdot','sdot2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'sdot' + (ok ? ' on' : '');
+  });
+  ['stext','stext2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = ok ? 'Connected' : (STATE.apiKey ? 'Key set' : 'No API key');
+  });
+}
+
+function updateApiStatus() {
+  const hasKey = !!STATE.apiKey;
+  ['stext','stext2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = hasKey ? 'Key set' : 'No API key';
+  });
+  ['sdot','sdot2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'sdot' + (hasKey ? ' on' : '');
+  });
+}
+
+/* ================================================================
+   CHAR COUNTER
+   ================================================================ */
+function updateCharCount(elId, text, limit) {
+  const el = document.getElementById(elId);
+  if (!el || !text || !limit) { if (el) el.textContent = ''; return; }
+  const len = text.length;
+  el.textContent = `${len.toLocaleString()} / ${limit.toLocaleString()} chars`;
+  el.className = len > limit ? 'char-count over' : len > limit * 0.85 ? 'char-count warn' : 'char-count';
+}
+
+/* ================================================================
+   TOAST
+   ================================================================ */
+function toast(msg, type = 'ok') {
+  const container = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = (type === 'ok' ? '✓ ' : '⚠ ') + msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 2100);
+}
+
+/* modal close on backdrop click */
+document.getElementById('key-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeKeyModal();
+});
+
+/* Enter key on modal */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeKeyModal();
+  if (e.key === 'Enter' && document.getElementById('key-modal').classList.contains('open')) {
+    saveApiKeyFromModal();
+  }
+});
+</script>
+</body>
+</html>

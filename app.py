@@ -29,7 +29,7 @@ MODEL_MAP = {
 
 
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    api_key = os.environ.get("fn_caption_api") or os.environ.get("ANTHROPIC_API_KEY", "")
 
     def do_OPTIONS(self):
         self.send_response(200)

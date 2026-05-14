@@ -1,7 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 import json, os, urllib.request, urllib.error
 
-_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+_KEY = os.environ.get("fn_caption_api") or os.environ.get("ANTHROPIC_API_KEY", "")
 
 _MODEL_MAP = {
     "gpt-4o":                    "claude-sonnet-4-5",

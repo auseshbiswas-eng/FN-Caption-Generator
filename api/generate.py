@@ -1,8 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 import json, os, urllib.request, urllib.error
 
-_KEY = os.environ.get("OPENAI_API_KEY") or \
-    "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"
+_KEY = os.environ.get("OPENAI_API_KEY", "")
 
 _MODEL = {"claude-sonnet-4-6":"gpt-4o","claude-haiku-4-5-20251001":"gpt-4o-mini",
           "gpt-4o":"gpt-4o","gpt-4o-mini":"gpt-4o-mini"}

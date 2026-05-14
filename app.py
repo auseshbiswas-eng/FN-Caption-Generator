@@ -21,7 +21,7 @@ PORT = int(os.environ.get("PORT", 8080))
 BASE_DIR = Path(__file__).parent
 MAX_BODY = 20 * 1024 * 1024  # 20 MB — allows base64-encoded images
 
-_DEFAULT_API_KEY = "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"
+_DEFAULT_API_KEY = ""  # Set OPENAI_API_KEY environment variable instead
 
 # Map legacy Anthropic model names → OpenAI equivalents
 MODEL_MAP = {

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-FundedNext AI Caption Generator — Python Server (OpenAI backend)
-Serves the dashboard UI and proxies calls to the OpenAI API.
+FundedNext AI Caption Generator — Python Server (Anthropic Claude backend)
+Serves the dashboard UI and proxies calls to the Anthropic API.
 
 Usage:
-    python3 app.py
-    OPENAI_API_KEY=sk-proj-... python3 app.py
+    ANTHROPIC_API_KEY=sk-ant-... python3 app.py
 """
 
 import http.server
@@ -21,19 +20,16 @@ PORT = int(os.environ.get("PORT", 8080))
 BASE_DIR = Path(__file__).parent
 MAX_BODY = 20 * 1024 * 1024  # 20 MB — allows base64-encoded images
 
-_DEFAULT_API_KEY = ""  # Set OPENAI_API_KEY environment variable instead
-
-# Map legacy Anthropic model names → OpenAI equivalents
 MODEL_MAP = {
-    "claude-sonnet-4-6":        "gpt-4o",
-    "claude-haiku-4-5-20251001": "gpt-4o-mini",
-    "gpt-4o":                   "gpt-4o",
-    "gpt-4o-mini":              "gpt-4o-mini",
+    "gpt-4o":                    "claude-sonnet-4-5",
+    "gpt-4o-mini":               "claude-haiku-4-5",
+    "claude-sonnet-4-6":         "claude-sonnet-4-5",
+    "claude-haiku-4-5-20251001": "claude-haiku-4-5",
 }
 
 
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
-    api_key = os.environ.get("OPENAI_API_KEY", "") or _DEFAULT_API_KEY
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
 
     def do_OPTIONS(self):
         self.send_response(200)
@@ -72,79 +68,38 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self._send_json({"status": "ok", "set": bool(key)})
 
         elif self.path == "/api/generate":
-            self._openai(body, streaming=False)
+            self._anthropic(body, streaming=False)
 
         elif self.path == "/api/stream":
-            self._openai(body, streaming=True)
+            self._anthropic(body, streaming=True)
 
         else:
             self.send_error(404)
 
     # ------------------------------------------------------------------ #
-    #  Request transformation: Anthropic-style body → OpenAI format       #
+    #  Anthropic proxy                                                     #
     # ------------------------------------------------------------------ #
-    def _to_openai(self, body: dict, streaming: bool) -> dict:
-        oai_messages = []
-
-        if "system" in body:
-            oai_messages.append({"role": "system", "content": body["system"]})
-
-        for msg in body.get("messages", []):
-            role = msg.get("role", "user")
-            content = msg.get("content")
-
-            if isinstance(content, list):
-                # Multimodal: convert Anthropic image blocks → OpenAI image_url blocks
-                oai_content = []
-                for block in content:
-                    if block.get("type") == "image":
-                        src = block.get("source", {})
-                        if src.get("type") == "base64":
-                            oai_content.append({
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:{src['media_type']};base64,{src['data']}"
-                                },
-                            })
-                    elif block.get("type") == "text":
-                        oai_content.append({"type": "text", "text": block.get("text", "")})
-                oai_messages.append({"role": role, "content": oai_content})
-            else:
-                oai_messages.append({"role": role, "content": content})
-
-        model = MODEL_MAP.get(body.get("model", "gpt-4o"), "gpt-4o")
-
-        oai_body = {
-            "model": model,
-            "messages": oai_messages,
-            "stream": streaming,
-        }
-        if "max_tokens" in body:
-            oai_body["max_tokens"] = body["max_tokens"]
-
-        return oai_body
-
-    # ------------------------------------------------------------------ #
-    #  OpenAI proxy                                                        #
-    # ------------------------------------------------------------------ #
-    def _openai(self, body: dict, streaming: bool):
+    def _anthropic(self, body: dict, streaming: bool):
         api_key = DashboardHandler.api_key
         if not api_key:
             self._send_json(
-                {"error": "No API key set. Click the 🔑 button and enter your OpenAI API key."},
+                {"error": "No API key set. Click the 🔑 button and enter your Anthropic API key."},
                 401,
             )
             return
 
-        oai_body = self._to_openai(body, streaming)
-        payload = json.dumps(oai_body).encode("utf-8")
+        # Remap model and set stream flag
+        body["model"] = MODEL_MAP.get(body.get("model", ""), "claude-sonnet-4-5")
+        body["stream"] = streaming
 
+        payload = json.dumps(body).encode("utf-8")
         req = urllib.request.Request(
-            "https://api.openai.com/v1/chat/completions",
+            "https://api.anthropic.com/v1/messages",
             data=payload,
             headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
+                "Content-Type":      "application/json",
+                "x-api-key":         api_key,
+                "anthropic-version": "2023-06-01",
             },
         )
 
@@ -166,37 +121,25 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                         if not line_str.startswith("data: "):
                             continue
                         data_str = line_str[6:].strip()
-                        if data_str == "[DONE]":
-                            self.wfile.write(b"data: [DONE]\n\n")
-                            self.wfile.flush()
-                            break
+                        if data_str in ("[DONE]", ""):
+                            continue
                         try:
                             chunk = json.loads(data_str)
-                            text = (
-                                chunk.get("choices", [{}])[0]
-                                .get("delta", {})
-                                .get("content", "")
-                            )
-                            if text:
-                                # Emit in Anthropic-compatible SSE format (client parses delta.text)
-                                evt = json.dumps({
-                                    "type": "content_block_delta",
-                                    "delta": {"type": "text_delta", "text": text},
-                                })
-                                self.wfile.write(f"data: {evt}\n\n".encode("utf-8"))
+                            if chunk.get("type") == "content_block_delta":
+                                # Already in the right format — pass through
+                                self.wfile.write(f"data: {data_str}\n\n".encode("utf-8"))
                                 self.wfile.flush()
+                            elif chunk.get("type") == "message_stop":
+                                self.wfile.write(b"data: [DONE]\n\n")
+                                self.wfile.flush()
+                                break
                         except Exception:
                             pass
             else:
                 with urllib.request.urlopen(req, timeout=90) as resp:
                     result = json.loads(resp.read())
-                # Convert OpenAI response → Anthropic-style shape the client JS expects
-                content = (
-                    result.get("choices", [{}])[0]
-                    .get("message", {})
-                    .get("content", "")
-                )
-                self._send_json({"content": [{"type": "text", "text": content}]})
+                # Anthropic response already has content[{type,text}] — pass through
+                self._send_json(result)
 
         except urllib.error.HTTPError as exc:
             raw_err = exc.read().decode("utf-8", errors="replace")
@@ -243,14 +186,14 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def _mime(ext: str) -> str:
         return {
             ".html": "text/html; charset=utf-8",
-            ".css": "text/css",
-            ".js": "application/javascript",
+            ".css":  "text/css",
+            ".js":   "application/javascript",
             ".json": "application/json",
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".svg": "image/svg+xml",
-            ".ico": "image/x-icon",
-            ".woff2": "font/woff2",
+            ".png":  "image/png",
+            ".jpg":  "image/jpeg",
+            ".svg":  "image/svg+xml",
+            ".ico":  "image/x-icon",
+            ".woff2":"font/woff2",
         }.get(ext.lower(), "application/octet-stream")
 
     def log_message(self, fmt, *args):
@@ -271,9 +214,9 @@ def main():
 
     if DashboardHandler.api_key:
         masked = DashboardHandler.api_key[:8] + "..." + DashboardHandler.api_key[-4:]
-        print(f"  ✓  OpenAI API key loaded from environment  ({masked})")
+        print(f"  ✓  Anthropic API key loaded from environment  ({masked})")
     else:
-        print("  ⚠  No OPENAI_API_KEY in environment.")
+        print("  ⚠  No ANTHROPIC_API_KEY in environment.")
         print("     Open the dashboard and click 🔑 to enter your key.")
 
     print()

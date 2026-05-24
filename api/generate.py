@@ -1,14 +1,40 @@
 from http.server import BaseHTTPRequestHandler
 import json, os, urllib.request, urllib.error
 
-_KEY = os.environ.get("fn_caption_api") or os.environ.get("ANTHROPIC_API_KEY", "")
+_KEY = os.environ.get("fn_caption_api") or os.environ.get("OPENAI_API_KEY", "")
 
-_MODEL_MAP = {
-    "gpt-4o":                    "claude-sonnet-4-5",
-    "gpt-4o-mini":               "claude-haiku-4-5",
-    "claude-sonnet-4-6":         "claude-sonnet-4-5",
-    "claude-haiku-4-5-20251001": "claude-haiku-4-5",
-}
+
+def _to_openai_body(body):
+    """Convert Anthropic-format request to OpenAI chat completions format."""
+    oai = {
+        "model": body.get("model", "gpt-4o"),
+        "max_tokens": body.get("max_tokens", 1024),
+    }
+    messages = []
+    if body.get("system"):
+        messages.append({"role": "system", "content": body["system"]})
+    for msg in body.get("messages", []):
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            messages.append({"role": role, "content": content})
+        elif isinstance(content, list):
+            oai_content = []
+            for block in content:
+                if block.get("type") == "text":
+                    oai_content.append({"type": "text", "text": block["text"]})
+                elif block.get("type") == "image":
+                    src = block.get("source", {})
+                    if src.get("type") == "base64":
+                        mt = src.get("media_type", "image/jpeg")
+                        oai_content.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mt};base64,{src.get('data', '')}"}
+                        })
+            messages.append({"role": role, "content": oai_content})
+    oai["messages"] = messages
+    return oai
+
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -19,25 +45,22 @@ class handler(BaseHTTPRequestHandler):
         try: body = json.loads(raw) if raw else {}
         except: self._j({"error": "Invalid JSON"}, 400); return
 
-        if not _KEY: self._j({"error": "No ANTHROPIC_API_KEY set on server."}, 401); return
+        if not _KEY: self._j({"error": "No OPENAI_API_KEY set on server."}, 401); return
 
-        # Remap model name, remove stream flag
-        body["model"] = _MODEL_MAP.get(body.get("model", ""), "claude-sonnet-4-5")
-        body.pop("stream", None)
-
+        oai_body = _to_openai_body(body)
         req = urllib.request.Request(
-            "https://api.anthropic.com/v1/messages",
-            data=json.dumps(body).encode(),
+            "https://api.openai.com/v1/chat/completions",
+            data=json.dumps(oai_body).encode(),
             headers={
-                "Content-Type":    "application/json",
-                "x-api-key":       _KEY,
-                "anthropic-version": "2023-06-01",
+                "Content-Type":  "application/json",
+                "Authorization": f"Bearer {_KEY}",
             })
         try:
             with urllib.request.urlopen(req, timeout=90) as r:
                 result = json.loads(r.read())
-            # Anthropic response already has content[0].text — pass through directly
-            self._j(result)
+            text = result["choices"][0]["message"]["content"]
+            # Return in Anthropic format so the frontend parser stays unchanged
+            self._j({"content": [{"type": "text", "text": text}]})
         except urllib.error.HTTPError as e:
             raw_e = e.read().decode("utf-8", "replace")
             try: eb = json.loads(raw_e)

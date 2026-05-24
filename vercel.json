@@ -1,8 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/generate", "destination": "/api/generate" },
-    { "source": "/api/stream",   "destination": "/api/stream"   },
-    { "source": "/api/key",      "destination": "/api/key"      },
-    { "source": "/(.*)",         "destination": "/index.html"   }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

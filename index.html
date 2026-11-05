@@ -1489,7 +1489,7 @@ async function generateCaption() {
   document.getElementById('cap-plat-chip').textContent  = PLATFORM_CONFIG[STATE.platform]?.label || STATE.platform;
 
   const body = {
-    model: 'gpt-4o',
+    model: 'gemini-2.0-flash',
     max_tokens: 1024,
     system: sysPrompt,
     messages: [{ role: 'user', content: prompt }],
@@ -1551,7 +1551,7 @@ async function translateCaption() {
   const sysPrompt = buildTranslatePrompt(original, langs);
 
   const body = {
-    model: 'openai/gpt-4o',
+    model: 'gemini-2.0-flash',
     max_tokens: 2048,
     system: 'You are a multilingual content adapter for FundedNext. Return only valid JSON as instructed.',
     messages: [{ role: 'user', content: sysPrompt }],
@@ -1657,7 +1657,7 @@ async function generateImageCaption() {
   outputEl.innerHTML = '<span class="output-placeholder">Analyzing image…</span>';
 
   const body = {
-    model: 'openai/gpt-4o',
+    model: 'gemini-2.0-flash',
     max_tokens: 1024,
     system: sysPrompt,
     messages: [{

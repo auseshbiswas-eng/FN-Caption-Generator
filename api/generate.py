@@ -7,7 +7,7 @@ _KEY = os.environ.get("fn_caption_api") or os.environ.get("OPENAI_API_KEY", "")
 def _to_openai_body(body):
     """Convert Anthropic-format request to OpenAI chat completions format."""
     oai = {
-        "model": body.get("model", "gemini-2.0-flash"),
+        "model": body.get("model", "gemini-3.8-flash"),
         "max_tokens": body.get("max_tokens", 1024),
     }
     messages = []

@@ -7,7 +7,7 @@ _KEY = os.environ.get("fn_caption_api") or os.environ.get("OPENAI_API_KEY", "")
 def _to_openai_body(body):
     """Convert Anthropic-format request to OpenAI chat completions format."""
     oai = {
-        "model": body.get("model", "gpt-4o"),
+        "model": body.get("model", "openai/gpt-4o"),
         "max_tokens": body.get("max_tokens", 1024),
     }
     messages = []
@@ -49,17 +49,18 @@ class handler(BaseHTTPRequestHandler):
 
         oai_body = _to_openai_body(body)
         req = urllib.request.Request(
-            "https://api.openai.com/v1/chat/completions",
+            "https://openrouter.ai/api/v1/chat/completions",
             data=json.dumps(oai_body).encode(),
             headers={
                 "Content-Type":  "application/json",
                 "Authorization": f"Bearer {_KEY}",
+                "HTTP-Referer": "https://fn-caption-generator.vercel.app",
+                "X-Title": "FundedNext Caption Generator",
             })
         try:
             with urllib.request.urlopen(req, timeout=90) as r:
                 result = json.loads(r.read())
             text = result["choices"][0]["message"]["content"]
-            # Return in Anthropic format so the frontend parser stays unchanged
             self._j({"content": [{"type": "text", "text": text}]})
         except urllib.error.HTTPError as e:
             raw_e = e.read().decode("utf-8", "replace")
